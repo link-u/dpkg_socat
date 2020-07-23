@@ -1,0 +1,135 @@
+name: Build debian packages
+
+on:
+  push:
+    branches-ignore:
+      - dependabot/**
+    tags:
+      - v*
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        codename: [bionic, focal]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
+
+      - name: Build debian package
+        uses: link-u/execute-on-separated-ubuntu@master
+        with:
+          script: scripts/all.sh
+          on: ${{ matrix.codename }}
+
+      - name: Upload result
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.codename }}
+          path: |
+            socat/*.deb
+            socat/*.ddeb
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        codename: [bionic, focal]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ matrix.codename }}
+          path: artifact
+      - name: Check debian package
+        uses: link-u/execute-on-separated-ubuntu@master
+        with:
+          script: scripts/test.sh
+          on: ${{ matrix.codename }}
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          commitish: ${{ github.sha }}
+          draft: true
+          prerelease: false
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+
+  upload:
+    needs: release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        codename: [bionic, focal]
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ matrix.codename }}
+          path: ${{ matrix.codename }}
+      - name: Create a zip
+        shell: bash
+        run: zip ${{ matrix.codename }}.zip ${{ matrix.codename }}/*
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: ${{ matrix.codename }}.zip
+          asset_name: ${{ matrix.codename }}.zip
+          asset_content_type: application/zip
+
+  deploy:
+    needs: upload
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        codename: [bionic, focal]
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ matrix.codename }}
+          path: ${{ matrix.codename }}
+      - name: Listup files
+        shell: bash
+        run: find .
+      - name: Deploy
+        shell: bash
+        run: |
+          printenv DEPLOY_SCRIPT | base64 -d > deploy.sh
+          bash deploy.sh upload "${{ matrix.codename }}" "socat" "${{ matrix.codename }}"
+        env:
+          DEPLOY_SCRIPT: ${{ secrets.YOROZU_DEPLOY_SCRIPT }}
+
+  sign:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sign
+        shell: bash
+        run: |
+          printenv DEPLOY_SCRIPT | base64 -d > deploy.sh
+          bash deploy.sh sign
+        env:
+          DEPLOY_SCRIPT: ${{ secrets.YOROZU_DEPLOY_SCRIPT }}
