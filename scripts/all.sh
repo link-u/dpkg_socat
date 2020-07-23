@@ -3,14 +3,14 @@
 set -eux
 
 ## git リポジトリ上の root のパスを取得
-scripts_dir=$(cd $(dirname $(readlink -f $0)) && pwd)
+root_dir=$(cd $(dirname $(readlink -f $0)) && cd .. && pwd)
 
 ## ビルド時に必要なパッケージのインストール
-env --chdir="${scripts_dir}/../socat" \
+env --chdir="${root_dir}/socat" \
   mk-build-deps --install --remove \
   --tool='apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends --yes' \
   debian/control
 
 ## deb ファイルのビルド
-bash "${scripts_dir}/create_changelog.sh"
-bash "${scripts_dir}/build.sh"
+bash "${root_dir}/scripts/create_changelog.sh"
+bash "${root_dir}/scripts/build.sh"

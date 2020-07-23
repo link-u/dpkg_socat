@@ -3,7 +3,7 @@
 set -eu
 
 ## git リポジトリ上の root のパスを取得
-scripts_dir=$(cd $(dirname $(readlink -f $0)) && cd .. && pwd)
+root_dir=$(cd $(dirname $(readlink -f $0)) && cd .. && pwd)
 
 ## HEAD のコミットID と HEAD の時のタグを取得
 git_commit="$(git rev-parse HEAD)"

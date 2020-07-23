@@ -3,7 +3,7 @@
 set -eux
 
 ## git リポジトリ上の root のパスを取得
-scripts_dir=$(cd $(dirname $(readlink -f $0)) && cd .. && pwd)
+root_dir=$(cd $(dirname $(readlink -f $0)) && cd .. && pwd)
 
 ## socat のソースディレクトリ名の取得
 src_dir=$(basename "$(ls -1vd ${root_dir}/socat/socat-*.tar.gz | tail -n 1)" .tar.gz);
