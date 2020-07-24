@@ -17,4 +17,7 @@ export AUTOHEADER = true
 override_dh_auto_configure:
 	dh_auto_configure -- --disable-readline
 
-.PHONY: override_dh_auto_configure
+override_dh_auto_test:
+	echo "Skip tests"
+
+.PHONY: override_dh_auto_configure override_dh_auto_test
